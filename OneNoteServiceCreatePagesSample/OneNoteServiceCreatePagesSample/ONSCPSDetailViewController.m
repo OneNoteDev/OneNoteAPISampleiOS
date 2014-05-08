@@ -27,7 +27,7 @@
 
 @implementation ONSCPSDetailViewController
 
-@synthesize authButton, createButton, responseField, clientLinkField, webLinkField, masterPopoverController;
+@synthesize authButton, sectionNameField, createButton, responseField, clientLinkField, webLinkField, masterPopoverController;
 
 #pragma mark - Managing the detail item
 
@@ -42,7 +42,7 @@
 
     if (self.masterPopoverController != nil) {
         [self.masterPopoverController dismissPopoverAnimated:YES];
-    }        
+    }
 }
 
 - (void)setExamples:(ONSCPSCreateExamples *)newExample {
@@ -75,11 +75,27 @@
     }
 }
 
+-(BOOL) textFieldShouldReturn:(UITextField *)textField
+{
+    [textField resignFirstResponder];
+    return YES;
+}
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    self.sectionNameField = [[UITextField alloc] initWithFrame: CGRectMake(150, 150, 135, 25)];
+    self.sectionNameField.placeholder = @"Enter section name";
+    self.sectionNameField.backgroundColor = [UIColor clearColor];
+    self.sectionNameField.borderStyle = UITextBorderStyleBezel;
+    self.sectionNameField.delegate = self;
+    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(5, 5, 800, 400)];
+    self.view.userInteractionEnabled = YES;
+    view.userInteractionEnabled = YES;
+    [view addSubview:sectionNameField];
+    [self.view addSubview:sectionNameField];
 	// Do any additional setup after loading the view, typically from a nib.
-    [self configureView];    
+    [self configureView];
 }
 
 #pragma mark - Split view
@@ -113,9 +129,9 @@
     self.responseField.text = @"";
     self.webLinkField.text=@"";
     self.clientLinkField.text=@"";
-    
+    NSString *sectionName = sectionNameField.text;
     // Run the action defined for the form in the 'objects' table in the master view controller
-    [self.examples performSelector:self.detailItem.implementation];
+    [self.examples performSelector:self.detailItem.implementation withObject:sectionName];
 }
 
 // Service action requested on the examples object has completed
@@ -133,7 +149,6 @@
         else {
             clientLinkField.text = @"";
             webLinkField.text = @"";
-            
         }
     }
 }

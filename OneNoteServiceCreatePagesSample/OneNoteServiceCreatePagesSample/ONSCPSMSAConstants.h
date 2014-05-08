@@ -17,15 +17,20 @@
 // governing permissions and limitations under the License.
 //*********************************************************
 
-#import <Foundation/Foundation.h>
+// The endpoint for the OneNote service
+extern NSString* const PagesEndPoint;
 
-@interface ONSCPSDataItem : NSObject
+// Scopes to request permissions for from Live Connect
+extern NSString* const ScopeStrings;
 
-@property (copy) NSString *title;
-@property (copy) NSString *description;
-@property SEL implementation;
+//The buffer in number of seconds added to the current time when checking if the access token expired
+extern NSInteger const TokenExpirationBuffer;
 
-- (id)initWithTitle: (NSString *)theTitle description:(NSString *)theDescription
-                implementation:(SEL)theImplementation;
+//The refresh token endpoint to be contacted when obtaining a new access token using the refresh token
+extern NSString* const RefreshTokenEndpoint;
 
-@end
+//The content type of a refresh token request
+extern NSString* const RequestContentType;
+
+//The refresh token request redirect URL
+extern NSString* const RefreshTokenRedirectURL;

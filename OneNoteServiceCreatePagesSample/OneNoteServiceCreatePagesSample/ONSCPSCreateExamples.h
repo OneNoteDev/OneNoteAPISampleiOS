@@ -24,25 +24,25 @@
 
 @interface ONSCPSCreateExamples : NSObject <LiveAuthDelegate, NSURLConnectionDelegate, NSURLConnectionDataDelegate>
 
-+ (NSString*) getClientId;
++ (NSString *)clientId;
+
++ (BOOL) isStringEmpty:(NSString *)string;
+
+- (id)init;
 
 // Initialize the class with a delegate for state changes
 - (id)initWithDelegate:(id<ONSCPSExampleDelegate>)newDelegate;
-
-// Get the delegate in use
--(id<ONSCPSExampleDelegate>) delegate;
-
-// Update the delegate to use
-- (void)setDelegate:(id<ONSCPSExampleDelegate>)newDelegate;
 
 // Authenticate against Live Connect passing a controller to host the auth UI on.
 - (void)authenticate:(UIViewController *)controller;
 
 // Five samples of creating pages
-- (void)createSimplePage;
-- (void)createPageWithImage;
-- (void)createPageWithEmbeddedWebPage;
-- (void)createPageWithUrl;
-- (void)createPageWithAttachment;
+- (void)createSimplePage:(NSString *)sectionName;
+- (void)createPageWithImage:(NSString *)sectionName;
+- (void)createPageWithEmbeddedWebPage:(NSString *)sectionName;
+- (void)createPageWithUrl:(NSString *)sectionName;
+- (void)createPageWithAttachmentAndPdfRendering:(NSString *)sectionName;
+
+@property id<ONSCPSExampleDelegate> delegate;
 
 @end

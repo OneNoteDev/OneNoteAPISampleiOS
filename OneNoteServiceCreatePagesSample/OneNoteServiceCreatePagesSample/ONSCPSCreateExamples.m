@@ -22,21 +22,13 @@
 #import <LiveSDK/LiveConnectSessionStatus.h>
 #import "ISO8601DateFormatter.h"
 #import "AFURLRequestSerialization.h"
-
-// The endpoint for the OneNote service
-NSString *const PagesEndPoint = @"https://www.onenote.com/api/v1.0/pages";
-
-// Scopes to request permissions for from Live Connect
-static NSString *ScopeStrings = @"wl.signin wl.offline_access Office.OneNote_Create";
+#import "ONSCPSMSAConstants.h"
 
 // Client id for your application from Live Connect application management page
-
 /**
  Visit http://go.microsoft.com/fwlink/?LinkId=392537 for instructions on getting a Client Id
  */
 static NSString *const ClientId = @"Insert Your Client Id Here";
-
-static NSArray *scopes;
 
 // Main Live Connect API object
 static LiveConnectClient *liveClient;
@@ -50,14 +42,20 @@ static NSString *accessToken;
 //The current refresh token value
 static NSString *refreshToken;
 
-// Add private extension members
-@interface ONSCPSCreateExamples ()
-{
-    // Callback for app-defined behavior when state changes
-    id<ONSCPSExampleDelegate> delegate;
+// Get a date in ISO8601 string format
+NSString* dateInISO8601Format() {
+    ISO8601DateFormatter *isoFormatter = [[ISO8601DateFormatter alloc] init];
+    [isoFormatter setDefaultTimeZone: [NSTimeZone localTimeZone]];
+    [isoFormatter setIncludeTime:YES];
+    NSString *date = [isoFormatter stringFromDate:[NSDate date]];
+    return date;
+}
 
-    // The in-progress connection
-    NSURLConnection *currentConnection;
+// Add private extension members
+@interface ONSCPSCreateExamples () {
+    
+    //Callback for app-defined behavior when state changes
+    id<ONSCPSExampleDelegate> _delegate;
     
     // Response from the current in-progress request
     NSHTTPURLResponse *returnResponse;
@@ -69,43 +67,62 @@ static NSString *refreshToken;
 
 @implementation ONSCPSCreateExamples
 
-+(NSString*) getClientId
-{
++ (NSString*)clientId {
     return ClientId;
 }
 
--(id)initWithDelegate:(id<ONSCPSExampleDelegate>)newDelegate {
-    if(!liveClient)
-    {
-        NSArray *scopes = [ScopeStrings componentsSeparatedByString:@" "];
-        liveClient = [[LiveConnectClient alloc] initWithClientId:ClientId
-                                                          scopes:scopes
++ (BOOL) isStringEmpty:(NSString *)string {
+    if([[string stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] length] == 0) {
+        return YES;
+    }
+    return NO;
+}
+
++ (NSString*) getPagesEndpointUrlWithSectionName:(NSString *)sectionName {
+    NSString *endpointToRequest;
+    if([ONSCPSCreateExamples isStringEmpty:sectionName]) {
+            endpointToRequest = PagesEndPoint;
+    }
+    else {
+        endpointToRequest = [NSString stringWithFormat: @"%@%@%@", PagesEndPoint, @"/?sectionName=",sectionName];
+    }
+    return endpointToRequest;
+}
+
+- (id)init {
+    return [self initWithDelegate:nil];
+}
+
+- (id)initWithDelegate:(id<ONSCPSExampleDelegate>)newDelegate {
+    self = [super init];
+    if(self != nil) {
+        if(!liveClient) {
+            NSArray *scopeStrings = @[@"wl.signin", @"wl.offline_access", @"Office.OneNote_Create"];
+            liveClient = [[LiveConnectClient alloc] initWithClientId:ClientId
+                                                          scopes:scopeStrings
                                                         delegate:self
                                                        userState:@"init"];
+        }
+        _delegate = newDelegate;
     }
-    delegate = newDelegate;
     return self;
 }
 
 // Get the delegate in use
--(id<ONSCPSExampleDelegate>) delegate
-{
-    return delegate;
+- (id<ONSCPSExampleDelegate>)delegate {
+    return _delegate;
 }
 
 // Update the delegate to use
 - (void)setDelegate:(id<ONSCPSExampleDelegate>)newDelegate {
-    delegate = newDelegate;
-
+    _delegate = newDelegate;
     // Force a refresh on the new delegate with the current state
-    if(delegate) {
-        [delegate exampleAuthStateDidChange:liveClient.session];
-    }
+    [_delegate exampleAuthStateDidChange:liveClient.session];
 }
 
 - (void)authenticate:(UIViewController *)controller {
-    assert(liveClient);
-    assert(controller);
+    NSAssert(liveClient != nil, @"The live client object was found to be nil.");
+    NSAssert(controller != nil, @"The UI View controller object was found to be nil");
     if (!liveClient.session) {
         [liveClient login:controller delegate:self userState:@"login"];
     }
@@ -114,28 +131,21 @@ static NSString *refreshToken;
     }
 }
 
--(void)authCompleted:(LiveConnectSessionStatus)status session:(LiveConnectSession *)session userState:(id)userState {
+- (void)authCompleted:(LiveConnectSessionStatus)status session:(LiveConnectSession *)session userState:(id)userState {
     //Initialize the values for the access token, the refresh token and the amount of time in which the token expires after successful completion of authentication
     accessToken = liveClient.session.accessToken;
     refreshToken = liveClient.session.refreshToken;
     expires = liveClient.session.expires;
-    if(delegate) {
-        [delegate exampleAuthStateDidChange:session];
-    }
+    [_delegate exampleAuthStateDidChange:session];
 }
 
-- (void) authFailed: (NSError *) error
-          userState: (id)userState
-{
-    if (delegate)
-    {
-        [delegate exampleAuthStateDidChange:nil];
-    }
+- (void)authFailed:(NSError *)error userState:(id)userState {
+    [_delegate exampleAuthStateDidChange:nil];
 }
 
-- (void) checkForAccessTokenExpiration {
+- (void)checkForAccessTokenExpiration {
     if(refreshToken) {
-        NSDate *now = [NSDate date];
+        NSDate *now = [NSDate dateWithTimeIntervalSinceNow:TokenExpirationBuffer];
         NSComparisonResult result = [expires compare:now];
         switch (result) {
             case NSOrderedSame:
@@ -150,9 +160,9 @@ static NSString *refreshToken;
     }
 }
 
-- (void)createSimplePage {
+- (void)createSimplePage:(NSString*)sectionName {
     [self checkForAccessTokenExpiration];
-    NSString *date = [ONSCPSCreateExamples getDate];
+    NSString *date = dateInISO8601Format();
     NSString *simpleHtml = [NSString stringWithFormat:
                             @"<html>"
                             "<head>"
@@ -165,23 +175,22 @@ static NSString *refreshToken;
                             "</html>", date];
     
     NSData *presentation = [simpleHtml dataUsingEncoding:NSUTF8StringEncoding];
-    
-    NSMutableURLRequest * request = [[NSMutableURLRequest alloc] initWithURL:[[NSURL alloc] initWithString:PagesEndPoint]];
+    NSString *endpointToRequest = [ONSCPSCreateExamples getPagesEndpointUrlWithSectionName:sectionName];
+    NSMutableURLRequest * request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:endpointToRequest]];
     request.HTTPMethod = @"POST";
     request.HTTPBody = presentation;
     [request addValue:@"text/html" forHTTPHeaderField:@"Content-Type"];
     
-    if (liveClient.session)
-    {
+    if (liveClient.session) {
         [request setValue:[@"Bearer " stringByAppendingString:accessToken] forHTTPHeaderField:@"Authorization"];
     }
-    currentConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:YES];
+    [NSURLConnection connectionWithRequest:request delegate:self];
 }
 
-- (void)createPageWithImage {
+- (void)createPageWithImage:(NSString*)sectionName {
     [self checkForAccessTokenExpiration];
     NSString *attachmentPartName = @"pngattachment1";
-    NSString *date = [ONSCPSCreateExamples getDate];
+    NSString *date = dateInISO8601Format();
     UIImage *logo = [UIImage imageNamed:@"Logo"];
     
     NSString *simpleHtml = [NSString stringWithFormat:
@@ -198,8 +207,8 @@ static NSString *refreshToken;
     
     NSData *presentation = [simpleHtml dataUsingEncoding:NSUTF8StringEncoding];
     NSData *image1 = UIImageJPEGRepresentation(logo, 1.0);
-    
-    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:@"POST" URLString:PagesEndPoint parameters:nil constructingBodyWithBlock: ^(id <AFMultipartFormData>formData) {
+    NSString *endpointToRequest = [ONSCPSCreateExamples getPagesEndpointUrlWithSectionName:sectionName];
+    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:@"POST" URLString:endpointToRequest parameters:nil constructingBodyWithBlock: ^(id <AFMultipartFormData>formData) {
         [formData
          appendPartWithHeaders:@{
                                  @"Content-Disposition" : @"form-data; name=\"Presentation\"",
@@ -212,15 +221,13 @@ static NSString *refreshToken;
          body:image1];
     }];
     
-    if (liveClient.session)
-    {
+    if (liveClient.session) {
         [request setValue:[@"Bearer " stringByAppendingString:accessToken] forHTTPHeaderField:@"Authorization"];
     }
-    
-    currentConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:YES];
+    [NSURLConnection connectionWithRequest:request delegate:self];
 }
 
-- (void)createPageWithEmbeddedWebPage {
+- (void)createPageWithEmbeddedWebPage:(NSString*)sectionName {
     [self checkForAccessTokenExpiration];
     NSString *embeddedWebPage =
         @"<html>"
@@ -236,7 +243,7 @@ static NSString *refreshToken;
         @"</body>"
         @"</html>";
     
-    NSString *date = [ONSCPSCreateExamples getDate];
+    NSString *date = dateInISO8601Format();
     NSString *simpleHtml = [NSString stringWithFormat:
                             @"<html>"
                             "<head>"
@@ -251,8 +258,8 @@ static NSString *refreshToken;
     
     NSData *presentation = [simpleHtml dataUsingEncoding:NSUTF8StringEncoding];
     NSData *embedded1 = [embeddedWebPage dataUsingEncoding:NSUTF8StringEncoding];
-    
-    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:@"POST" URLString:PagesEndPoint parameters:nil constructingBodyWithBlock: ^(id <AFMultipartFormData>formData) {
+    NSString *endpointToRequest = [ONSCPSCreateExamples getPagesEndpointUrlWithSectionName:sectionName];
+    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:@"POST" URLString:endpointToRequest parameters:nil constructingBodyWithBlock: ^(id <AFMultipartFormData>formData) {
                                                         [formData
                                                          appendPartWithHeaders:@{
                                                                                  @"Content-Disposition" : @"form-data; name=\"Presentation\"",
@@ -264,17 +271,15 @@ static NSString *refreshToken;
                                                                                  @"Content-Type" : @"text/html"}
                                                          body:embedded1];
                                                     }];
-    if (liveClient.session)
-    {
+    if (liveClient.session) {
         [request setValue:[@"Bearer " stringByAppendingString:accessToken] forHTTPHeaderField:@"Authorization"];
     }
-    
-    currentConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:YES];
+    [NSURLConnection connectionWithRequest:request delegate:self];
 }
 
-- (void)createPageWithUrl {
+- (void)createPageWithUrl:(NSString*)sectionName {
     [self checkForAccessTokenExpiration];
-    NSString *date = [ONSCPSCreateExamples getDate];
+    NSString *date = dateInISO8601Format();
     NSString *simpleHtml = [NSString stringWithFormat:
                             @"<html>"
                             "<head>"
@@ -288,8 +293,8 @@ static NSString *refreshToken;
                             "</html>", date];
     
     NSData *presentation = [simpleHtml dataUsingEncoding:NSUTF8StringEncoding];
-    
-    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:@"POST" URLString:PagesEndPoint parameters:nil constructingBodyWithBlock: ^(id <AFMultipartFormData>formData) {
+    NSString *endpointToRequest = [ONSCPSCreateExamples getPagesEndpointUrlWithSectionName:sectionName];
+    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:@"POST" URLString:endpointToRequest parameters:nil constructingBodyWithBlock: ^(id <AFMultipartFormData>formData) {
                                                         [formData
                                                          appendPartWithHeaders:@{
                                                                                  @"Content-Disposition" : @"form-data; name=\"Presentation\"",
@@ -297,21 +302,18 @@ static NSString *refreshToken;
                                                          body:presentation];
                                                     }];
     
-    if (liveClient.session)
-    {
+    if (liveClient.session) {
         [request setValue:[@"Bearer " stringByAppendingString:accessToken] forHTTPHeaderField:@"Authorization"];
     }
-    
-    currentConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:YES];
+    [NSURLConnection connectionWithRequest:request delegate:self];
 }
 
-- (void)createPageWithAttachment {
+- (void)createPageWithAttachmentAndPdfRendering:(NSString*)sectionName {
     [self checkForAccessTokenExpiration];
     NSString *attachmentPartName = @"pdfattachment1";
-    NSString *path = [[NSBundle mainBundle] pathForResource:@"attachment" ofType:@"pdf"];
-    NSString *date = [ONSCPSCreateExamples getDate];
-    NSData *fileData = [NSData dataWithContentsOfFile:path];
-    
+    NSURL *attachmentURL = [[NSBundle mainBundle] URLForResource:@"attachment" withExtension:@"pdf"];
+    NSString *date = dateInISO8601Format();
+    NSData *fileData = [NSData dataWithContentsOfURL: attachmentURL];
     NSString *simpleHtml = [NSString stringWithFormat:
                             @"<html>"
                             "<head>"
@@ -319,14 +321,16 @@ static NSString *refreshToken;
                             "<meta name=\"created\" content=\"%@\" />"
                             "</head>"
                             "<body>"
-                            "<h1>This is a page with a file attachment on it</h1>"
+                            "<h1>This is a page with a PDF file attachment</h1>"
                             "<object data-attachment=\"attachment.pdf\" data=\"name:%@\" />"
+                            "<p>Here's the contents of the PDF document :</p>"
+                            "<img data-render-src=\"name:%@\" alt=\"Hello World\" width=\"1500\" />"
                             "</body>"
-                            "</html>", date, attachmentPartName];
+                            "</html>", date, attachmentPartName, attachmentPartName];
     
     NSData *presentation = [simpleHtml dataUsingEncoding:NSUTF8StringEncoding];
-    
-    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:@"POST" URLString:PagesEndPoint parameters:nil constructingBodyWithBlock: ^(id <AFMultipartFormData>formData) {
+    NSString *endpointToRequest = [ONSCPSCreateExamples getPagesEndpointUrlWithSectionName:sectionName];
+    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:@"POST" URLString:endpointToRequest parameters:nil constructingBodyWithBlock: ^(id <AFMultipartFormData>formData) {
         [formData
          appendPartWithHeaders:@{
                                  @"Content-Disposition" : @"form-data; name=\"Presentation\"",
@@ -339,57 +343,62 @@ static NSString *refreshToken;
          body:fileData];
     }];
     
-    if (liveClient.session)
-    {
+    if (liveClient.session) {
         [request setValue:[@"Bearer " stringByAppendingString:accessToken] forHTTPHeaderField:@"Authorization"];
     }
-    
-    currentConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:YES];
+    [NSURLConnection connectionWithRequest:request delegate:self];
+}
+
+- (void) processRefreshTokenResponse:(NSDictionary *)responseObject {
+    accessToken = (NSString *) responseObject[@"access_token"];
+    refreshToken = (NSString *) responseObject[@"refresh_token"];
+    NSInteger expiresIn = [responseObject[@"expires_in"] integerValue];
+    expires = [NSDate dateWithTimeIntervalSinceNow:expiresIn];
 }
 
 - (void) attemptRefreshToken {
-    NSString *refreshTokenEndpoint = @"https://login.live.com/oauth20_token.srf";
-    NSString *requestContentType = @"application/x-www-form-urlencoded";
-    NSString *refreshTokenRedirectURL = @"https://login.live.com/oauth20_desktop.srf";
-    NSString *requestBody = [NSString stringWithFormat:@"client_id=%@&redirect_uri=%@&grant_type=refresh_token&refresh_token=%@", ClientId, refreshTokenRedirectURL, refreshToken];
-    NSMutableURLRequest *refreshRequest = [[AFHTTPRequestSerializer serializer] requestWithMethod:@"POST"  URLString:refreshTokenEndpoint parameters:nil ];
-    [refreshRequest setValue:requestContentType forHTTPHeaderField:@"Content-Type"];
-    [refreshRequest setHTTPBody:[requestBody dataUsingEncoding:NSUTF8StringEncoding]];
+    NSString *requestBody = [NSString stringWithFormat:@"client_id=%@&redirect_uri=%@&grant_type=refresh_token&refresh_token=%@", ClientId, RefreshTokenRedirectURL, refreshToken];
+    NSMutableURLRequest * refreshRequest = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:RefreshTokenEndpoint]];
+    refreshRequest.HTTPMethod = @"POST";
+    refreshRequest.HTTPBody = [requestBody dataUsingEncoding:NSUTF8StringEncoding];
+    [refreshRequest setValue:RequestContentType forHTTPHeaderField:@"Content-Type"];
+    if (liveClient.session) {
+        [refreshRequest setValue:[@"Bearer " stringByAppendingString:accessToken] forHTTPHeaderField:@"Authorization"];
+    }
     NSHTTPURLResponse *refreshTokenResponse = nil;
     NSData *responseData = [NSURLConnection sendSynchronousRequest:refreshRequest returningResponse:&refreshTokenResponse error:nil];
-    if(refreshTokenResponse != nil) {
-        if([refreshTokenResponse statusCode] == 200) {
+    if (refreshTokenResponse != nil) {
+        if ([refreshTokenResponse statusCode] == 200) {
             NSError *jsonError;
             NSDictionary *responseObject = [NSJSONSerialization JSONObjectWithData:responseData options:0 error:&jsonError];
-            if(responseObject && !jsonError)
-            {
-                accessToken = (NSString *)responseObject[@"access_token"];
-                refreshToken = (NSString *)responseObject[@"refresh_token"];
-                NSTimeInterval expirationInterval;
-                expirationInterval = (NSInteger)responseObject[@"expires_in"];
-                [expires dateByAddingTimeInterval: expirationInterval];
+            if (responseObject && !jsonError) {
+                [self processRefreshTokenResponse:responseObject];
             }
+            else {
+                /*
+                 Reaching here means that parsing the response object received for the refresh token request failed.
+                 This is a placeholder to define error handling as per desired application specific behavior in this event.
+                */
+            }
+        }
+        else {
+            /*
+             Reaching here means that the status code on the response was NOT 200 OK for the refresh token request.
+             This is a placeholder for adding application specific handling for not having a successful response for this request.
+             */
         }
     }
 }
 
-// Get a date in ISO8601 string format
-+ (NSString *)getDate {
-    ISO8601DateFormatter *isoFormatter = [[ISO8601DateFormatter alloc] init];
-    [isoFormatter setDefaultTimeZone: [NSTimeZone localTimeZone]];
-    [isoFormatter setIncludeTime:YES];
-    NSString *date = [isoFormatter stringFromDate:[NSDate date]];
-    return date;
-}
+
+
 
 #pragma mark - Delegate callbacks from asynchronous request POST
 
 // Handle send errors
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
      // Error is a failure to make the call or authenticate, not a deep HTTP error response from the server.
-    if(delegate) {
-        [delegate exampleServiceActionDidCompleteWithResponse: [[ONSCPSStandardErrorResponse alloc] init]];
-    }
+     [_delegate exampleServiceActionDidCompleteWithResponse:[[ONSCPSStandardErrorResponse alloc] init]];
 }
 
 // When body data arrives, store it
@@ -404,33 +413,29 @@ static NSString *refreshToken;
 }
 
 // Handle parsing the response from a finished service call
-- (void)connectionDidFinishLoading:(NSURLConnection *)connection {
-    if(delegate) {
-        int status = [returnResponse statusCode];
-        ONSCPSStandardResponse *standardResponse = nil;
-        
-        if (status == 201) {
-            ONSCPSCreateSuccessResponse *created = [[ONSCPSCreateSuccessResponse alloc] init];
-            created.httpStatusCode = status;
-            NSError *jsonError;
-            NSDictionary *responseObject = [NSJSONSerialization JSONObjectWithData:returnData options:0 error:&jsonError];
-            if(responseObject && !jsonError) {
-                created.oneNoteClientUrl = ((NSDictionary *)((NSDictionary *)responseObject[@"links"])[@"oneNoteClientUrl"])[@"href"];
-                created.oneNoteWebUrl = ((NSDictionary *)((NSDictionary *)responseObject[@"links"])[@"oneNoteWebUrl"])[@"href"];                }
-            standardResponse = created;
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection{
+    int status = [returnResponse statusCode];
+    ONSCPSStandardResponse *standardResponse = nil;
+    if (status == 201) {
+        ONSCPSCreateSuccessResponse *created = [[ONSCPSCreateSuccessResponse alloc] init];
+        created.httpStatusCode = status;
+        NSError *jsonError;
+        NSDictionary *responseObject = [NSJSONSerialization JSONObjectWithData:returnData options:0 error:&jsonError];
+        if(responseObject && !jsonError) {
+            created.oneNoteClientUrl = [responseObject valueForKeyPath:@"links.oneNoteClientUrl.href"];
+            created.oneNoteWebUrl = [responseObject valueForKeyPath:@"links.oneNoteWebUrl.href"];
         }
-        else {
-            ONSCPSStandardErrorResponse *error = [[ONSCPSStandardErrorResponse alloc] init];
-            error.httpStatusCode = status;
-            error.message = [[NSString alloc] initWithData:returnData encoding:NSUTF8StringEncoding];
-            standardResponse = error;
-        }
-        
-        // Send the response back to the client.
-        if (standardResponse) {
-            [delegate exampleServiceActionDidCompleteWithResponse: standardResponse];
-        }
+        standardResponse = created;
     }
+    else {
+        ONSCPSStandardErrorResponse *error = [[ONSCPSStandardErrorResponse alloc] init];
+        error.httpStatusCode = status;
+        error.message = [[NSString alloc] initWithData:returnData encoding:NSUTF8StringEncoding];
+        standardResponse = error;
+    }
+    NSAssert(standardResponse != nil, @"The standard response for the connection that finished loading appears to be nil");
+    // Send the response back to the client.
+    [_delegate exampleServiceActionDidCompleteWithResponse: standardResponse];
 }
 
 @end

@@ -22,20 +22,20 @@
 @interface ONSCPSStandardResponse: NSObject
 
 @property int httpStatusCode;
-@property (strong) NSString* correlationId;
+@property (copy) NSString* correlationId;
 
 @end
 
 @interface ONSCPSStandardErrorResponse: ONSCPSStandardResponse
 
-@property (strong) NSString *message;
+@property (copy) NSString *message;
 
 @end
 
 @interface ONSCPSCreateSuccessResponse: ONSCPSStandardResponse
 
-@property (strong) NSString *oneNoteClientUrl;
-@property (strong) NSString *oneNoteWebUrl;
+@property (copy) NSString *oneNoteClientUrl;
+@property (copy) NSString *oneNoteWebUrl;
 
 @end
 

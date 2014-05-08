@@ -23,7 +23,7 @@
 #import "ONSCPSExampleDelegate.h"
 #import "ONSCPSCreateExamples.h"
 
-@interface ONSCPSDetailViewController : UIViewController <UISplitViewControllerDelegate, ONSCPSExampleDelegate>
+@interface ONSCPSDetailViewController : UIViewController <UISplitViewControllerDelegate, ONSCPSExampleDelegate, UITextFieldDelegate>
 
 @property (strong, nonatomic) ONSCPSDataItem *detailItem;
 
@@ -31,6 +31,7 @@
 @property (strong, nonatomic) ONSCPSCreateExamples *examples;
 
 @property (weak, nonatomic) IBOutlet UIBarButtonItem *authButton;
+@property (strong, nonatomic) IBOutlet UITextField *sectionNameField;
 @property (weak, nonatomic) IBOutlet UIButton *createButton;
 @property (weak, nonatomic) IBOutlet UITextField *responseField;
 @property (weak, nonatomic) IBOutlet UITextField *clientLinkField;

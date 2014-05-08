@@ -69,7 +69,7 @@
     Check if client ID has not yet been entered in ONSCPSCreateExamples
     If yes, alert that a client ID must be inserted in file ONSCPSCreateExamples.m
      */
-    if([[ONSCPSCreateExamples getClientId]  isEqual: @"Insert Your Client Id Here"]) {
+    if([[ONSCPSCreateExamples clientId]  isEqual: @"Insert Your Client Id Here"]) {
         [alert show];
     }
 }
@@ -78,11 +78,11 @@
 {
     if(!objects) {
         objects = @[
-                     [[ONSCPSDataItem alloc] initWithTitle:@"Simple page" description:@"Create a simple page using HTML to describe the page content." implementation:@selector(createSimplePage)],
-                     [[ONSCPSDataItem alloc] initWithTitle:@"Page with image" description:@"Create a page with some formatted text and an image." implementation:@selector(createPageWithImage)],
-                     [[ONSCPSDataItem alloc] initWithTitle:@"Embedded web page" description:@"Create a page with a snapshot of the HTML of a web page on it." implementation: @selector(createPageWithEmbeddedWebPage)],
-                     [[ONSCPSDataItem alloc] initWithTitle:@"Public web page" description:@"Create a page with a snapshot of the OneNote.com homepage on it." implementation:@selector(createPageWithUrl)],
-                     [[ONSCPSDataItem alloc] initWithTitle:@"Page with file attachment" description:@"Create a page with a file attachment on it." implementation:@selector(createPageWithAttachment)]
+                    [[ONSCPSDataItem alloc] initWithTitle:@"Simple page" description:@"Create a simple page using HTML to describe the page content." implementation:@selector(createSimplePage:)],
+                    [[ONSCPSDataItem alloc] initWithTitle:@"Page with image" description:@"Create a page with some formatted text and an image." implementation:@selector(createPageWithImage:)],
+                    [[ONSCPSDataItem alloc] initWithTitle:@"Embedded web page" description:@"Create a page with a snapshot of the HTML of a web page on it." implementation: @selector(createPageWithEmbeddedWebPage:)],
+                    [[ONSCPSDataItem alloc] initWithTitle:@"Public web page" description:@"Create a page with a snapshot of the OneNote.com homepage on it." implementation:@selector(createPageWithUrl:)],
+                    [[ONSCPSDataItem alloc] initWithTitle:@"Page with a PDF file attachment rendered" description:@"Create a page with a PDF file attachment rendered" implementation:@selector(createPageWithAttachmentAndPdfRendering:)]
                      ];
     }
 }
@@ -139,7 +139,7 @@
         {
             // Setup for iPhone, where this is the first sign of detail view
             self.detailViewController = [segue destinationViewController];
-            
+            [examples delegate];
             examples = [[ONSCPSCreateExamples alloc] initWithDelegate:self.detailViewController];
             
             [self.detailViewController setExamples:examples];
